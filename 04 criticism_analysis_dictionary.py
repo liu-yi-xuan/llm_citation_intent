@@ -299,3 +299,104 @@ print(f"Plot saved to: data/motivation_distribution.png")
 
 
 # %%
+RESPONSES_DIR = "data/arxiv_llm_responses"
+RESPONSES_03B_DIR = "data/arxiv_original_llm_responses"
+
+# ============================================================
+# Load 03b outputs for motivation-vs-judge comparison
+# ============================================================
+
+print("\nLoading 03b judge responses...")
+judge_files = glob.glob(os.path.join(RESPONSES_03B_DIR, "*/responses.json"))
+print(f"  Found {len(judge_files)} papers with 03b responses")
+
+def _norm_mot(v):
+    if not isinstance(v, str):
+        return ""
+    v = v.strip().lower()
+    return v if v in {"supporting", "contrasting", "mentioning"} else ""
+
+judge_records = []
+for jf in judge_files:
+    with open(jf) as f:
+        data_j = json.load(f)
+
+    for r in data_j.get("results", []):
+        m_self = _norm_mot(r.get("motivation_script03_self", {}).get("motivation", ""))
+        m_judge_orig = _norm_mot(r.get("motivation_llm_as_judge_original", {}).get("motivation", ""))
+        m_judge_fill = _norm_mot(r.get("motivation_llm_as_judge_filled", {}).get("motivation", ""))
+
+        # keep rows where all three are valid so comparison uses the same set
+        if not (m_self and m_judge_orig and m_judge_fill):
+            continue
+
+        judge_records.append({
+            "arxiv_id": data_j.get("arxiv_id"),
+            "context_index": r.get("context_index"),
+            "llm_self_motivation": m_self,
+            "judge_original_motivation": m_judge_orig,
+            "judge_filled_motivation": m_judge_fill,
+        })
+
+df_judge = pd.DataFrame(judge_records)
+print(f"  Comparable contexts (same-set): {len(df_judge)}")
+# %%
+# ============================================================
+# Plot 2: Motivation distribution comparison (same-set, from 03b)
+# ============================================================
+
+if len(df_judge) == 0:
+    print("No comparable 03b motivation data found for plotting.")
+else:
+    mot_order = ['supporting', 'contrasting', 'mentioning']
+    mot_colors = {
+        'supporting': 'salmon',
+        'contrasting': 'skyblue',
+        'mentioning': 'lightgreen',
+    }
+
+    c_self = df_judge["llm_self_motivation"].value_counts()
+    c_orig = df_judge["judge_original_motivation"].value_counts()
+    c_fill = df_judge["judge_filled_motivation"].value_counts()
+
+    n = len(df_judge)
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.5), dpi=300, sharey=True)
+
+    panels = [
+        ("LLM Self (Step 03)", c_self),
+        ("Judge on Original", c_orig),
+        ("Judge on Generated", c_fill),
+    ]
+
+    max_count = max(
+        max([c_self.get(m, 0) for m in mot_order] + [1]),
+        max([c_orig.get(m, 0) for m in mot_order] + [1]),
+        max([c_fill.get(m, 0) for m in mot_order] + [1]),
+    )
+
+    for ax, (title, counts_map) in zip(axes, panels):
+        counts = [counts_map.get(m, 0) for m in mot_order]
+        colors = [mot_colors[m] for m in mot_order]
+
+        ax.barh(mot_order, counts, color=colors, height=0.5, alpha=0.9)
+        for i, (m, c) in enumerate(zip(mot_order, counts)):
+            pct = 100 * c / n if n else 0
+            ax.text(c + max_count * 0.02, i, f"{c:,} ({pct:.1f}%)", va="center", fontsize=8)
+
+        ax.set_xlim(0, max_count * 1.25)
+        ax.set_title(title, fontsize=10)
+        ax.set_xlabel("Count", fontsize=9)
+        ax.invert_yaxis()
+        ax.grid(axis='x', alpha=0.3, linestyle='--')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    axes[0].set_ylabel("Motivation", fontsize=9)
+    fig.suptitle("Citation Contexts Distribution", fontsize=11)
+
+    plt.tight_layout()
+    plt.savefig("data/motivation_distribution_compare_03_vs_03b.png", bbox_inches="tight", dpi=300)
+    plt.show()
+    print("Plot saved to: data/motivation_distribution_compare_03_vs_03b.png")
+# %%

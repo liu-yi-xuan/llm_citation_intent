@@ -40,8 +40,7 @@ Three patterns emerge, organized as the paper's three research questions:
 │
 ├── pipeline/                  # data generation: raw papers → analysis-ready CSVs
 │   ├── 00_masked_corpus.md                     # masking design + masked-corpus schema (input)
-│   ├── 01_mask_and_recommend_openrouter.py     # LLM reconstructs each masked citation (OpenRouter)
-│   ├── 01_mask_and_recommend_siliconflow.py    # same task, SiliconFlow-hosted models
+│   ├── 01_mask_and_recommend.py                # LLM reconstructs each masked citation (OpenRouter or SiliconFlow)
 │   ├── 02_judge_intent.py                      # LLM-as-judge intent labels (two-phase)
 │   ├── 03_match_dimensions.py                  # match references to Dimensions (DOI → title)
 │   ├── 04_build_author_dyads.py                # per-slot first/last-author dyads + metadata
@@ -109,15 +108,15 @@ citation is a **clean counterfactual** to the human choice at the same slot:
 
 See the doc for the full `contexts.json` schema and rules.
 
-### 01 — Masking & reconstruction  ·  `pipeline/01_mask_and_recommend_*.py`
+### 01 — Masking & reconstruction  ·  `pipeline/01_mask_and_recommend.py`
 
 For each masked slot the model receives the cleaned masked paragraph, section,
 title/venue/year, and the required count, and returns that many **real** papers,
 a reconstructed sentence, and a **self-reported intent + confidence**, as strict
-JSON. Temperature = 0 for all models. Two provider variants are included
-(OpenRouter, SiliconFlow); both read API keys from an **external JSON file you
-supply** (e.g. `openrouter_keys.json`) — no keys are committed. Resume-safe
-(skips papers already done).
+JSON. Temperature = 0 for all models. One script serves both OpenAI-compatible
+providers — pick with `PROVIDER=openrouter` (default) or `PROVIDER=siliconflow`;
+keys load from the **external `api_keys.json` you supply** (provider-specific
+field) — no keys are committed. Resume-safe (skips papers already done).
 
 Six source models: **GPT-5.1, Claude-3.5-Haiku, Gemini-2.0-Flash,
 DeepSeek-V3.2, Llama-4-Maverick, Qwen2.5-72B-Instruct**.

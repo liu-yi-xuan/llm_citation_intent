@@ -1,31 +1,36 @@
 #%%
 """
-Step 01 (OpenRouter) — Masking & LLM citation reconstruction
-============================================================
+Step 01 — Masking & LLM citation reconstruction
+===============================================
 For each masked citation context, ask an LLM to:
   1. Recommend a paper that should be cited at [CITE_HERE]
   2. Provide bibliographic details (title, authors, year, venue)
   3. Write a citation sentence to replace [CITE_HERE]
   4. Classify the citation motivation (supporting/contrasting/mentioning)
 
-Provider: OpenRouter (https://openrouter.ai/api/v1).
-Keys:     openrouter_keys.json or env OPENROUTER_API_KEYS / OPENROUTER_API_KEY.
-Default model: openai/gpt-5.1-chat (non-reasoning; same price as gpt-5.1).
+Works with either the OpenRouter or the SiliconFlow API (both OpenAI-compatible).
+Select the provider with the PROVIDER env var (default: openrouter):
+
+    PROVIDER=openrouter  python pipeline/01_mask_and_recommend.py     # default
+    PROVIDER=siliconflow python pipeline/01_mask_and_recommend.py
+
+Per provider (see PROVIDERS below) this sets the base URL, the keys file/field,
+the env-var names, and the default model. Any field can be overridden via env
+(PROVIDER_BASE_URL, KEYS_FILE, OPENROUTER_MODELS / SILICONFLOW_MODELS, ...).
+Keys load from the provider's JSON file (api_keys.json with the provider's
+field), the *_API_KEYS env (comma-separated), the *_API_KEY env, or OPENAI_API_KEY.
 
 Saves results per-paper under:
     data/arxiv_llm_responses/{model_slug}/{arxiv_id}/responses.json
-
 Resume-safe: skips papers that already have responses.
 
 Progress monitoring:
   - tqdm bar in the foreground.
-  - Log file at logs/03_or_run_{model_slug}.log
-      tail -f "logs/03_or_run_openai_gpt-5.1.log"
-  - Live progress snapshot at logs/03_or_progress_{model_slug}.json
-      cat "logs/03_or_progress_openai_gpt-5.1.json"
+  - Log file at logs/{LOG_TAG}_run_{model_slug}.log
+  - Live progress snapshot at logs/{LOG_TAG}_progress_{model_slug}.json
 
 Usage:
-    python "03 llm_cite_recommendation_or.py"
+    python pipeline/01_mask_and_recommend.py
 
 Requires:
     pip install openai pandas tqdm
@@ -53,18 +58,48 @@ PREPRINT_DATE_CSV = "data/preprints_acl_dimensions.csv"
 ARXIV_DATES_CSV = "data/arxiv_api_dates.csv"
 OUTPUT_BASE_DIR = "data/arxiv_llm_responses"
 LOG_DIR = "logs"
-LOG_TAG = "03_or"
 
-# OpenRouter model slug. Override with env OPENROUTER_MODELS (comma-separated).
-# gpt-5.1-chat is the non-reasoning sibling of gpt-5.1 — same per-token price,
-# no hidden reasoning tokens, so the existing max_tokens budget is enough.
-DEFAULT_MODELS = "openai/gpt-5.1-chat"
+# ----- Provider selection -------------------------------------------------- #
+# One script, two OpenAI-compatible providers. Pick with PROVIDER env var.
+# Each entry can be overridden individually by the env vars referenced below.
+PROVIDERS = {
+    "openrouter": {
+        "base_url":        "https://openrouter.ai/api/v1",
+        "keys_file":       "api_keys.json",          # combined key file
+        "keys_json_field": "openrouter_api_keys",
+        "env_keys_plural": "OPENROUTER_API_KEYS",
+        "env_keys_single": "OPENROUTER_API_KEY",
+        "models_env":      "OPENROUTER_MODELS",
+        "default_models":  "openai/gpt-5.1-chat",
+        "log_tag":         "03_or",
+    },
+    "siliconflow": {
+        "base_url":        "https://api.siliconflow.com/v1",
+        "keys_file":       "api_keys.json",
+        "keys_json_field": "siliconflow_api_keys",
+        "env_keys_plural": "SILICONFLOW_API_KEYS",
+        "env_keys_single": "SILICONFLOW_API_KEY",
+        "models_env":      "SILICONFLOW_MODELS",
+        "default_models":  "deepseek-ai/DeepSeek-V3.2",
+        "log_tag":         "03_sf",
+    },
+}
 
-PROVIDER_BASE_URL = "https://openrouter.ai/api/v1"
-KEYS_FILE = "openrouter_keys.json"
-KEYS_JSON_FIELD = "openrouter_api_keys"
-ENV_KEYS_PLURAL = "OPENROUTER_API_KEYS"
-ENV_KEYS_SINGULAR = "OPENROUTER_API_KEY"
+PROVIDER = os.getenv("PROVIDER", "openrouter").strip().lower()
+if PROVIDER not in PROVIDERS:
+    raise SystemExit(f"Unknown PROVIDER={PROVIDER!r}; choose one of {list(PROVIDERS)}")
+_P = PROVIDERS[PROVIDER]
+
+# Each constant falls back to the selected provider's default, but an explicit
+# env var always wins (so you can point at a custom gateway / key file / model).
+PROVIDER_BASE_URL = os.getenv("PROVIDER_BASE_URL", _P["base_url"])
+KEYS_FILE         = os.getenv("KEYS_FILE", _P["keys_file"])
+KEYS_JSON_FIELD   = _P["keys_json_field"]
+ENV_KEYS_PLURAL   = _P["env_keys_plural"]
+ENV_KEYS_SINGULAR = _P["env_keys_single"]
+MODELS_ENV        = _P["models_env"]
+DEFAULT_MODELS    = _P["default_models"]
+LOG_TAG           = _P["log_tag"]
 MAX_CONTEXTS_PER_PAPER = 100       # Cap to control cost
 MAX_WORKERS = 24                   # Parallel requests per paper
 MAX_RETRIES = 5                   # Retry on transient api_error / validation_error
@@ -104,9 +139,10 @@ def get_venue(doi) -> str:
 
 def parse_models() -> list[str]:
     """
-    Comma-separated OpenRouter model slugs from env OPENROUTER_MODELS.
+    Comma-separated model slugs from the provider's models env var
+    (OPENROUTER_MODELS or SILICONFLOW_MODELS); falls back to DEFAULT_MODELS.
     """
-    raw = os.getenv("OPENROUTER_MODELS", DEFAULT_MODELS)
+    raw = os.getenv(MODELS_ENV, DEFAULT_MODELS)
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
@@ -1122,7 +1158,7 @@ if __name__ == "__main__":
     cutoff_ts = pd.Timestamp(PREPRINT_DATE_CUTOFF)
 
     print("=" * 70)
-    print("LLM Citation Recommendation (Sycophancy Experiment) — OpenRouter")
+    print(f"LLM Citation Recommendation (masked-citation reconstruction) — {PROVIDER}")
     print(f"Models: {models}")
     print(f"Provider base URL: {PROVIDER_BASE_URL}")
     print(f"Loaded API keys: {len(CLIENTS)}")

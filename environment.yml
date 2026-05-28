@@ -1,0 +1,19 @@
+name: citation-intent
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - pyarrow
+  - tqdm
+  - pip
+  - pip:
+      # analysis needs only numpy/pandas/scipy/matplotlib (above);
+      # the rest are for the data-generation pipeline.
+      - openai
+      - networkit
+      - google-cloud-bigquery
+      - pyyaml

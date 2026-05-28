@@ -1,28 +1,27 @@
-# Python cache and environments
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.venv/
-venv/
-env/
-
-# IDE/editor
-.vscode/
-.cursor/
-.ipynb_checkpoints/
-
-# Secrets
-openrouter_keys.json
+# Secrets / local config (commit the *.example.* templates instead)
+config.yml
+*keys.json
+!*.example.json
 .env
-.env.*
 
-# OS files
+# Data — distributed separately (the data/ pointer-README is whitelisted)
+data/*
+!data/README.md
+*.parquet
+*.csv
+!assets/*.csv
+
+# Generated outputs — no binaries / no PDFs in the repo
+*.png
+*.pdf
+*.svg
+*.html
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor cruft
 .DS_Store
-Thumbs.db
-
-# Data/artifacts
-data/
-
-# Generated figures
-data/*.png
+.vscode/
+.idea/

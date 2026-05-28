@@ -1,0 +1,12 @@
+# Core analysis + plotting (analysis/ scripts)
+numpy
+pandas
+scipy
+matplotlib
+
+# Pipeline scripts (pipeline/) additionally need:
+openai            # OpenRouter / SiliconFlow are queried via the OpenAI-compatible client
+tqdm
+networkit         # BFS shortest paths on the 20.3M-edge coauthor graph
+pyarrow           # parquet I/O
+google-cloud-bigquery   # Dimensions matching + author/edge construction (institutional access)

@@ -1,0 +1,64 @@
+# ---------------------------------------------------------------------------
+# Configuration template.  Copy to `config.yml` (git-ignored) and fill in your
+# own values, OR export the equivalent environment variables before running.
+# Nothing here is secret on its own, but `config.yml` is ignored so your real
+# project/dataset names never get committed.
+# ---------------------------------------------------------------------------
+
+# Google BigQuery (pipeline steps 03-06; needs an institutional Dimensions
+# subscription exposed on BigQuery).
+bigquery:
+  project:  "your-gcp-project"      # env: BQ_PROJECT
+  dataset:  "your_dataset"          # env: BQ_DATASET   (your private working dataset)
+  location: "US"                    # env: BQ_LOCATION
+
+  # Vendor source tables (Dimensions-on-BigQuery — same names for every
+  # subscriber; change only if your institution mirrors them elsewhere).
+  dimensions_source:
+    publications: "dimensions-ai.data_analytics.publications"
+    researchers:  "dimensions-ai.data_analytics.researchers"
+
+  # Working tables the pipeline creates inside <project>.<dataset>.
+  # Rename freely; each script builds the fully-qualified name as
+  # "<project>.<dataset>.<table>".
+  tables:
+    citations_to_match:         "citations_to_match"
+    citations_matched:          "citations_matched_dointitle"
+    focal_papers_to_match:      "focal_papers_to_match"
+    focal_papers_matched:       "focal_papers_matched"
+    pubs_to_lookup:             "pubs_to_lookup"
+    pubs_authors:               "pubs_authors"
+    researchers_to_lookup:      "researchers_to_lookup"
+    researchers_metadata:       "researchers_metadata"
+    coauthor_edges:             "coauthor_edges_2015_2024"
+
+# LLM API providers (pipeline steps 01-02).  Both providers' keys live in ONE
+# file (copy api_keys.example.json -> api_keys.json; git-ignored), under their
+# own field; each script reads only its provider's field.  Keys may also be
+# supplied via the listed env vars.  Point KEYS_FILE at this file for both steps.
+keys_file: "api_keys.json"                 # combined; from api_keys.example.json
+providers:
+  openrouter:
+    base_url:  "https://openrouter.ai/api/v1"
+    keys_field: "openrouter_api_keys"      # env: OPENROUTER_API_KEYS
+  siliconflow:
+    base_url:  "https://api.siliconflow.com/v1"
+    keys_field: "siliconflow_api_keys"     # env: SILICONFLOW_API_KEYS
+
+# Models.
+models:
+  sources:                                 # the 6 LLMs whose citations we audit
+    - "openai/gpt-5.1-chat"
+    - "anthropic/claude-3.5-haiku"
+    - "google/gemini-2.0-flash-001"
+    - "deepseek-ai/DeepSeek-V3.2"
+    - "meta-llama/llama-4-maverick"
+    - "Qwen/Qwen2.5-72B-Instruct"
+  judge_primary:     "google/gemini-3-flash-preview"
+  judge_robustness:  "deepseek-ai/DeepSeek-V4-Flash"
+
+# Local paths.
+paths:
+  masked_corpus:  "data/arxiv_masked_2025"             # input (step 00)
+  dyad_distances: "data/author_dyads_judge_gemini"     # analysis input  (env: CITATION_DATA_DIR)
+  figures:        "figures"                            # analysis output (env: CITATION_FIG_DIR)

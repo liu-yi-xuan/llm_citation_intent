@@ -1,0 +1,9 @@
+{
+  "openrouter_api_keys": [
+    "sk-or-v1-REPLACE_WITH_YOUR_OPENROUTER_KEY",
+    "sk-or-v1-OPTIONAL_SECOND_KEY_FOR_ROUND_ROBIN"
+  ],
+  "siliconflow_api_keys": [
+    "sk-REPLACE_WITH_YOUR_SILICONFLOW_KEY"
+  ]
+}

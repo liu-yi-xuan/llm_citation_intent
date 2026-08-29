@@ -1,4 +1,4 @@
-# LLMs Amplify Citation Bias and Social Proximity by Rhetorical Intent
+# Citing Less Critically: LLMs Reshape the Rhetoric and Reach of Scientific Citation
 
 Code for a masked-citation study that compares **human** and **LLM-generated**
 citation behavior across six popular LLMs and 1,746 top-NLP-conference papers
